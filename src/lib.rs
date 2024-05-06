@@ -200,9 +200,6 @@ impl TextEmbeddings {
 
 	#[no_mangle]
 	pub extern "C" fn get_text_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> *const f32 {
-		use std::time::Instant;
-		let start = Instant::now();
-
 		let text = unsafe {
 			let slice = std::slice::from_raw_parts_mut(text_ptr as *mut u8, text_len);
 			std::str::from_utf8_unchecked(slice)
@@ -211,9 +208,6 @@ impl TextEmbeddings {
 		let embeddings = self.get_model().predict(text);
 		let ptr = embeddings.as_ptr();
 		std::mem::forget(embeddings);
-
-		let duration = start.elapsed();
-		println!("Time elapsed in get_model().predict(): {:?}", duration);
 
 		ptr
 	}
