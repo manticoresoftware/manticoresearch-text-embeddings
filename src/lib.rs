@@ -108,7 +108,6 @@ fn get_mean_vector(results: &Vec<Vec<f32>>) -> Vec<f32> {
 	mean_vector
 }
 
-#[repr(C)]
 pub struct Model {
 	model: BertModel,
 	tokenizer: TokenizerImpl<ModelWrapper, NormalizerWrapper, PreTokenizerWrapper, PostProcessorWrapper, DecoderWrapper>,
@@ -136,15 +135,15 @@ impl Model {
 		}
 	}
 
-	pub fn get_max_input_len(&mut self) -> usize {
+	pub fn get_max_input_len(&self) -> usize {
 		self.max_input_len
 	}
 
-	pub fn get_hidden_size(&mut self) -> usize {
+	pub fn get_hidden_size(&self) -> usize {
 		self.hidden_size
 	}
 
-	pub fn predict(&mut self, text: &str) -> Vec<f32> {
+	pub fn predict(&self, text: &str) -> Vec<f32> {
 		let device = &self.model.device;
 		let tokens = self.tokenizer
 			.encode(text, true)
@@ -175,51 +174,110 @@ impl Model {
 	}
 }
 
-type ModelPtr = *mut c_void;
+#[repr(transparent)]
+struct TextModel(*const c_void);
 
 #[repr(C)]
-struct TextEmbeddings {
-	model: ModelPtr,
+struct FloatVec {
+    ptr: *mut f32,
+    len: usize,
+	cap: usize,
 }
 
-impl TextEmbeddings {
-	#[no_mangle]
-	pub extern "C" fn new(name_ptr: *const c_char, name_len: usize) -> Self {
+
+impl TextModel {
+
+	extern "C" fn load_model(name_ptr: *const c_char, name_len: usize) -> Self {
 		let name = unsafe {
-			let slice = std::slice::from_raw_parts_mut(name_ptr as *mut u8, name_len);
+			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
 			std::str::from_utf8_unchecked(slice)
 		};
 
-		let model_ptr = Box::into_raw(Box::new(Model::create(name.to_string(), None, None))) as ModelPtr;
-		TextEmbeddings { model: model_ptr }
+		let model = Model::create(name.to_string(), None, None);
+		TextModel(Box::into_raw(Box::new(model)) as *const c_void)
 	}
 
-	fn get_model(&self) -> &mut Model {
-		unsafe { &mut *(self.model as *mut Model) }
+	extern "C" fn delete_model(self) {
+		unsafe {
+			drop(Box::from_raw(self.0 as *mut Model));
+		}
 	}
 
-	#[no_mangle]
-	pub extern "C" fn get_text_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> *const f32 {
+	fn as_model(&self) -> &Model {
+		unsafe { & *(self.0 as *const Model) }
+	}
+
+	fn make_embeddings(self, text_ptr: *const c_char, text_len: usize) -> Vec<f32> {
 		let text = unsafe {
-			let slice = std::slice::from_raw_parts_mut(text_ptr as *mut u8, text_len);
+			let slice = std::slice::from_raw_parts(text_ptr as *mut u8, text_len);
 			std::str::from_utf8_unchecked(slice)
 		};
 
-		let embeddings = self.get_model().predict(text);
-		let ptr = embeddings.as_ptr();
+		self.as_model().predict(text)
+	}
+
+	extern "C" fn make_vect_embeddings(self, text_ptr: *const c_char, text_len: usize) -> FloatVec {
+		let mut embeddings = self.make_embeddings(text_ptr,text_len);//.into_boxed_slice();
+		let ptr = embeddings.as_mut_ptr();
+		let len = embeddings.len();
+		let cap = embeddings.capacity();
 		std::mem::forget(embeddings);
-
-		ptr
+		FloatVec { ptr, len, cap }
 	}
 
-	#[no_mangle]
-	pub extern "C" fn get_hidden_size(&mut self) -> usize {
-		self.get_model().get_hidden_size()
+	extern "C" fn delete_vec(buf: FloatVec) {
+//		let s = unsafe { std::slice::from_raw_parts_mut(buf.ptr, buf.len) };
+//		unsafe {
+//			drop(Box::from_raw(s as *mut [f32]));
+//		}
+		unsafe { Vec::from_raw_parts(buf.ptr, buf.len, buf.cap) };
 	}
 
-	#[no_mangle]
-	pub extern "C" fn get_max_input_len(&mut self) -> usize {
-		self.get_model().get_max_input_len()
+	extern "C" fn get_hidden_size(self) -> usize {
+		self.as_model().get_hidden_size()
+	}
+
+
+	extern "C" fn get_max_input_len(self) -> usize {
+		self.as_model().get_max_input_len()
 	}
 }
 
+
+type LoadModelFn = extern "C" fn (*const c_char, usize) -> TextModel;
+type DeleteModelFn = extern "C" fn (TextModel);
+type MakeVectEmbeddingsFn = extern "C" fn (TextModel, *const c_char, usize) -> FloatVec;
+type DeleteVecFn = extern "C" fn (FloatVec);
+type GetLenFn = extern "C" fn (TextModel) -> usize;
+
+#[allow(unused)]
+#[no_mangle]
+#[repr(C)]
+pub struct EmbeddLib {
+    size: usize,
+    load_model: LoadModelFn,
+    delete_model: DeleteModelFn,
+    make_vect_embeddings: MakeVectEmbeddingsFn,
+    delete_vec: DeleteVecFn,
+	get_hidden_size: GetLenFn,
+	get_max_input_size: GetLenFn,
+}
+
+impl Default for EmbeddLib {
+    fn default() -> Self {
+        Self {
+            size: std::mem::size_of::<Self>(),
+            load_model: TextModel::load_model,
+            delete_model: TextModel::delete_model,
+            make_vect_embeddings: TextModel::make_vect_embeddings,
+            delete_vec: TextModel::delete_vec,
+			get_hidden_size: TextModel::get_hidden_size,
+			get_max_input_size: TextModel::get_max_input_len,
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn GetLibFuncs() -> EmbeddLib {
+    EmbeddLib::default()
+}

@@ -3,18 +3,32 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef void *ModelPtr;
+typedef const void *TextModel;
 
-typedef struct TextEmbeddings {
-  ModelPtr model;
-} TextEmbeddings;
+typedef TextModel (*LoadModelFn)(const char*, uintptr_t);
 
-struct TextEmbeddings new(const char *name_ptr, uintptr_t name_len);
+typedef void (*DeleteModelFn)(TextModel);
 
-const float *get_text_embeddings(const struct TextEmbeddings *self,
-                                 const char *text_ptr,
-                                 uintptr_t text_len);
+typedef struct FloatVec {
+  float *ptr;
+  uintptr_t len;
+  uintptr_t cap;
+} FloatVec;
 
-uintptr_t get_hidden_size(struct TextEmbeddings *self);
+typedef struct FloatVec (*MakeVectEmbeddingsFn)(TextModel, const char*, uintptr_t);
 
-uintptr_t get_max_input_len(struct TextEmbeddings *self);
+typedef void (*DeleteVecFn)(struct FloatVec);
+
+typedef uintptr_t (*GetLenFn)(TextModel);
+
+typedef struct EmbeddLib {
+  uintptr_t size;
+  LoadModelFn load_model;
+  DeleteModelFn delete_model;
+  MakeVectEmbeddingsFn make_vect_embeddings;
+  DeleteVecFn delete_vec;
+  GetLenFn get_hidden_size;
+  GetLenFn get_max_input_size;
+} EmbeddLib;
+
+struct EmbeddLib GetLibFuncs(void);
