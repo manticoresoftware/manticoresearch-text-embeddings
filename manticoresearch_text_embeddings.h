@@ -1,27 +1,28 @@
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
+#include <ostream>
+#include <new>
 
-typedef const void *TextModel;
+using TextModel = const void*;
 
-typedef TextModel (*LoadModelFn)(const char*, uintptr_t);
+using LoadModelFn = TextModel(*)(const char*, uintptr_t);
 
-typedef void (*DeleteModelFn)(TextModel);
+using DeleteModelFn = void(*)(TextModel);
 
-typedef struct FloatVec {
+struct FloatVec {
   float *ptr;
   uintptr_t len;
   uintptr_t cap;
-} FloatVec;
+};
 
-typedef struct FloatVec (*MakeVectEmbeddingsFn)(TextModel, const char*, uintptr_t);
+using MakeVectEmbeddingsFn = FloatVec(*)(TextModel, const char*, uintptr_t);
 
-typedef void (*DeleteVecFn)(struct FloatVec);
+using DeleteVecFn = void(*)(FloatVec);
 
-typedef uintptr_t (*GetLenFn)(TextModel);
+using GetLenFn = uintptr_t(*)(TextModel);
 
-typedef struct EmbeddLib {
+struct EmbeddLib {
   uintptr_t size;
   LoadModelFn load_model;
   DeleteModelFn delete_model;
@@ -29,6 +30,10 @@ typedef struct EmbeddLib {
   DeleteVecFn delete_vec;
   GetLenFn get_hidden_size;
   GetLenFn get_max_input_size;
-} EmbeddLib;
+};
 
-struct EmbeddLib GetLibFuncs(void);
+extern "C" {
+
+EmbeddLib GetLibFuncs();
+
+} // extern "C"
