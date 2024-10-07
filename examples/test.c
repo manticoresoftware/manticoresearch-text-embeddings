@@ -9,7 +9,7 @@ int main() {
 	const char text[] = "This is a sample text.";
 	const uintptr_t text_len = sizeof(text);
 
-	const EmbeddLib tLib = GetLibFuncs();
+	const EmbedLib tLib = GetLibFuncs();
 
 	// Create a new TextEmbeddings instance
 	TextModel pEngine = tLib.load_model ("sentence-transformers/multi-qa-MiniLM-L6-cos-v1", 47);

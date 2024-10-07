@@ -22,7 +22,7 @@ using DeleteVecFn = void(*)(FloatVec);
 
 using GetLenFn = uintptr_t(*)(TextModel);
 
-struct EmbeddLib {
+struct EmbedLib {
   uintptr_t size;
   LoadModelFn load_model;
   DeleteModelFn delete_model;
@@ -34,6 +34,6 @@ struct EmbeddLib {
 
 extern "C" {
 
-EmbeddLib GetLibFuncs();
+EmbedLib GetLibFuncs();
 
 } // extern "C"
