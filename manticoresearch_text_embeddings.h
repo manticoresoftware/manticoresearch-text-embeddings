@@ -1,3 +1,8 @@
+// Auto-generated file. Do not edit.
+
+#ifndef MANTICORESEARCH_TEXT_EMBEDDINGS_H
+#define MANTICORESEARCH_TEXT_EMBEDDINGS_H
+
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
@@ -11,16 +16,27 @@ using LoadModelFn = TextModel(*)(const char*, uintptr_t);
 using DeleteModelFn = void(*)(TextModel);
 
 struct FloatVec {
-  float *ptr;
+  const float *ptr;
   uintptr_t len;
   uintptr_t cap;
+
+  bool operator==(const FloatVec& other) const {
+    return ptr == other.ptr &&
+           len == other.len &&
+           cap == other.cap;
+  }
+  bool operator!=(const FloatVec& other) const {
+    return ptr != other.ptr ||
+           len != other.len ||
+           cap != other.cap;
+  }
 };
 
-using MakeVectEmbeddingsFn = FloatVec(*)(TextModel, const char*, uintptr_t);
+using MakeVectEmbeddingsFn = FloatVec(*)(const TextModel*, const char*, uintptr_t);
 
 using DeleteVecFn = void(*)(FloatVec);
 
-using GetLenFn = uintptr_t(*)(TextModel);
+using GetLenFn = uintptr_t(*)(const TextModel*);
 
 struct EmbedLib {
   uintptr_t size;
@@ -30,10 +46,31 @@ struct EmbedLib {
   DeleteVecFn delete_vec;
   GetLenFn get_hidden_size;
   GetLenFn get_max_input_size;
+
+  bool operator==(const EmbedLib& other) const {
+    return size == other.size &&
+           load_model == other.load_model &&
+           delete_model == other.delete_model &&
+           make_vect_embeddings == other.make_vect_embeddings &&
+           delete_vec == other.delete_vec &&
+           get_hidden_size == other.get_hidden_size &&
+           get_max_input_size == other.get_max_input_size;
+  }
+  bool operator!=(const EmbedLib& other) const {
+    return size != other.size ||
+           load_model != other.load_model ||
+           delete_model != other.delete_model ||
+           make_vect_embeddings != other.make_vect_embeddings ||
+           delete_vec != other.delete_vec ||
+           get_hidden_size != other.get_hidden_size ||
+           get_max_input_size != other.get_max_input_size;
+  }
 };
 
 extern "C" {
 
-EmbedLib GetLibFuncs();
+const EmbedLib *GetLibFuncs();
 
 } // extern "C"
+
+#endif // MANTICORESEARCH_TEXT_EMBEDDINGS_H
