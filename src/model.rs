@@ -94,7 +94,7 @@ impl Model {
 			.to_vec();
 		let chunks = chunk_input_tokens(&tokens, self.max_input_len, (self.max_input_len / 10) as usize);
 		let mut results: Vec<Vec<f32>> = Vec::new();
-		for chunk in &chunks {
+		for chunk in chunks.iter() {
 			let token_ids = Tensor::new(&chunk[..], device).unwrap().unsqueeze(0).unwrap();
 			let token_type_ids = token_ids.zeros_like().unwrap();
 			let embeddings = self.model.forward(&token_ids, &token_type_ids).unwrap();

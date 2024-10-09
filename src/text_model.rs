@@ -31,7 +31,7 @@ impl TextModel {
 		let text = unsafe {
 			std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
 		};
-		let embeddings = self.as_model().predict(text)
+		let embeddings = self.as_model().predict(text);
 		let ptr = embeddings.as_ptr();
 		let len = embeddings.len();
 		let cap = embeddings.capacity();

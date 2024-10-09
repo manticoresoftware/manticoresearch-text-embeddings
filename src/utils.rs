@@ -42,7 +42,7 @@ pub fn chunk_input_tokens(tokens: &[u32], max_seq_len: usize, stride: usize) -> 
 	chunks
 }
 
-pub fn get_mean_vector(results: &Vec<Vec<f32>>) -> Vec<f32> {
+pub fn get_mean_vector(results: &[Vec<f32>]) -> Vec<f32> {
 	if results.is_empty() {
 		return Vec::new();
 	}
