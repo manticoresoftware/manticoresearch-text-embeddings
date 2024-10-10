@@ -13,7 +13,11 @@ int main() {
 
 	// Create a new TextEmbeddings instance
 
-	TextModel pEngine = tLib->load_model ("sentence-transformers/multi-qa-MiniLM-L6-cos-v1", 47);
+	const char modelName[] = "openai/text-embedding-3-small";
+	const uintptr_t modelNameLen = sizeof(modelName) - 1;
+	const char apiKey[] = "your_api_key_here";
+	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;
+	TextModelWrapper pEngine = tLib->load_model(modelName, modelNameLen, apiKey, apiKeyLen);
 
 	FloatVec tEmbeddings = tLib->make_vect_embeddings ( &pEngine, text, text_len );
 

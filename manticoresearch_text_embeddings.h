@@ -9,11 +9,11 @@
 #include <ostream>
 #include <new>
 
-using TextModel = const void*;
+using TextModelWrapper = void*;
 
-using LoadModelFn = TextModel(*)(const char*, uintptr_t);
+using LoadModelFn = TextModelWrapper(*)(const char*, uintptr_t, const char*, uintptr_t);
 
-using DeleteModelFn = void(*)(TextModel);
+using DeleteModelFn = void(*)(TextModelWrapper);
 
 struct FloatVec {
   const float *ptr;
@@ -32,11 +32,11 @@ struct FloatVec {
   }
 };
 
-using MakeVectEmbeddingsFn = FloatVec(*)(const TextModel*, const char*, uintptr_t);
+using MakeVectEmbeddingsFn = FloatVec(*)(const TextModelWrapper*, const char*, uintptr_t);
 
 using DeleteVecFn = void(*)(FloatVec);
 
-using GetLenFn = uintptr_t(*)(const TextModel*);
+using GetLenFn = uintptr_t(*)(const TextModelWrapper*);
 
 struct EmbedLib {
   uintptr_t size;

@@ -1,20 +1,33 @@
 use std::ffi::c_void;
 use std::os::raw::c_char;
-use crate::model::Model;
-use crate::ffi::FloatVec;
+use crate::model::{Model, TextModel, create_model, ModelOptions, FloatVec};
 
 #[repr(transparent)]
-pub struct TextModel(*const c_void);
+pub struct TextModelWrapper(*mut c_void);
 
-impl TextModel {
-	pub extern "C" fn load_model(name_ptr: *const c_char, name_len: usize) -> Self {
+impl TextModelWrapper {
+	pub extern "C" fn load_model(name_ptr: *const c_char, name_len: usize, api_key_ptr: *const c_char, api_key_len: usize) -> Self {
 		let name = unsafe {
 			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
 			std::str::from_utf8_unchecked(slice)
 		};
 
-		let model = Model::create(name.to_string(), None, None);
-		TextModel(Box::into_raw(Box::new(model)) as *const c_void)
+		let api_key = unsafe {
+			let slice = std::slice::from_raw_parts(api_key_ptr as *mut u8, api_key_len);
+			std::str::from_utf8_unchecked(slice)
+		};
+
+		let options = ModelOptions {
+			model_id: name.to_string(),
+			api_key: if api_key.is_empty() {
+				None
+			} else {
+				Some(api_key.to_string())
+			},
+		};
+
+		let model = create_model(options);
+		TextModelWrapper(Box::into_raw(Box::new(model)) as *mut c_void)
 	}
 
 	pub extern "C" fn delete_model(self) {
@@ -24,18 +37,20 @@ impl TextModel {
 	}
 
 	fn as_model(&self) -> &Model {
-		unsafe { & *(self.0 as *const Model) }
+		unsafe { &*(self.0 as *const Model) }
 	}
 
 	pub extern "C" fn make_vect_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> FloatVec {
 		let text = unsafe {
 			std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
 		};
+
 		let embeddings = self.as_model().predict(text);
 		let ptr = embeddings.as_ptr();
 		let len = embeddings.len();
 		let cap = embeddings.capacity();
 		std::mem::forget(embeddings);
+
 		FloatVec { ptr, len, cap }
 	}
 

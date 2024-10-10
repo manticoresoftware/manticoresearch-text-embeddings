@@ -8,4 +8,4 @@ derive_eq = true
 derive_neq = true
 
 [export]
-include = ["FloatVec"]
+include = ["FloatVec", "TextModelWrapper"]

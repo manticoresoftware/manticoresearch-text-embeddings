@@ -1,21 +1,13 @@
 use std::os::raw::c_char;
-use crate::text_model::TextModel;
+use crate::model::FloatVec;
+use crate::model::text_model_wrapper::TextModelWrapper;
 
-#[repr(C)]
-pub struct FloatVec {
-	pub ptr: *const f32,
-	pub len: usize,
-	pub cap: usize,
-}
-
-type LoadModelFn = extern "C" fn (*const c_char, usize) -> TextModel;
-type DeleteModelFn = extern "C" fn (TextModel);
-type MakeVectEmbeddingsFn = extern "C" fn (&TextModel, *const c_char, usize) -> FloatVec;
+type LoadModelFn = extern "C" fn (*const c_char, usize, *const c_char, usize) -> TextModelWrapper;
+type DeleteModelFn = extern "C" fn (TextModelWrapper);
+type MakeVectEmbeddingsFn = extern "C" fn (&TextModelWrapper, *const c_char, usize) -> FloatVec;
 type DeleteVecFn = extern "C" fn (FloatVec);
-type GetLenFn = extern "C" fn (&TextModel) -> usize;
+type GetLenFn = extern "C" fn (&TextModelWrapper) -> usize;
 
-#[allow(unused)]
-#[no_mangle]
 #[repr(C)]
 pub struct EmbedLib {
 	size: usize,
@@ -29,12 +21,12 @@ pub struct EmbedLib {
 
 const LIB: EmbedLib = EmbedLib {
 	size: std::mem::size_of::<EmbedLib>(),
-	load_model: TextModel::load_model,
-	delete_model: TextModel::delete_model,
-	make_vect_embeddings: TextModel::make_vect_embeddings,
-	delete_vec: TextModel::delete_vec,
-	get_hidden_size: TextModel::get_hidden_size,
-	get_max_input_size: TextModel::get_max_input_len,
+	load_model: TextModelWrapper::load_model,
+	delete_model: TextModelWrapper::delete_model,
+	make_vect_embeddings: TextModelWrapper::make_vect_embeddings,
+	delete_vec: TextModelWrapper::delete_vec,
+	get_hidden_size: TextModelWrapper::get_hidden_size,
+	get_max_input_size: TextModelWrapper::get_max_input_len,
 };
 
 #[no_mangle]
