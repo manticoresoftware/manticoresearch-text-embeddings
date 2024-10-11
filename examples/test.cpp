@@ -20,6 +20,7 @@ int main() {
 	const uintptr_t cachePathLen = sizeof(cachePath) - 1;
 	const char apiKey[] = "";
 	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;
+	const bool useGpu = false;
 	TextModelWrapper pEngine = tLib->load_model(
 		modelName,
 		modelNameLen,
@@ -27,6 +28,7 @@ int main() {
 		cachePathLen,
 		apiKey,
 		apiKeyLen,
+		useGpu
 	);
 
 	FloatVec tEmbeddings = tLib->make_vect_embeddings ( &pEngine, text, text_len );

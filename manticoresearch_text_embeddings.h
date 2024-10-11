@@ -16,7 +16,8 @@ using LoadModelFn = TextModelWrapper(*)(const char*,
                                         const char*,
                                         uintptr_t,
                                         const char*,
-                                        uintptr_t);
+                                        uintptr_t,
+                                        bool);
 
 using DeleteModelFn = void(*)(TextModelWrapper);
 

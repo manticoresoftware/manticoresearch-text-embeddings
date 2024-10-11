@@ -22,6 +22,7 @@ pub struct ModelOptions {
 	model_id: String,
 	cache_path: Option<String>,
 	api_key: Option<String>,
+	use_gpu: Option<bool>,
 }
 
 #[repr(C)]
@@ -71,7 +72,8 @@ pub fn create_model(options: ModelOptions) -> Model {
 				PathBuf::from(
 					options.cache_path
 						.unwrap_or(String::from("~/.cache/manticore"))
-				)
+				),
+				options.use_gpu.unwrap_or(false)
 			)
 		)
 	}

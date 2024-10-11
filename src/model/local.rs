@@ -71,10 +71,14 @@ pub struct LocalModel {
 }
 
 impl LocalModel {
-	pub fn new(model_id: &str, cache_path: PathBuf) -> Self {
+	pub fn new(model_id: &str, cache_path: PathBuf, use_gpu: bool) -> Self {
 		let revision = "main";
 		let use_pth = false;
-		let device = Device::Cpu;
+		let device = if use_gpu {
+			Device::new_cuda(0).unwrap()
+		} else {
+			Device::Cpu
+		};
 		let model_info = build_model_info(cache_path, model_id, revision, use_pth).unwrap();
 		let (model, mut tokenizer, max_input_len, hidden_size) =
 		build_model_and_tokenizer(model_info, device).unwrap();
@@ -158,7 +162,7 @@ mod tests {
 	fn test_all_minilm_l6_v2() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
 		let cache_path = PathBuf::from("~/.cache/manticore");
-		let local_model = LocalModel::new(model_id, cache_path);
+		let local_model = LocalModel::new(model_id, cache_path, false);
 
 		let test_sentences = [
 			"This is a test sentence.",
@@ -176,7 +180,7 @@ mod tests {
 	fn test_embedding_consistency() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
 		let cache_path = PathBuf::from("~/.cache/manticore");
-		let local_model = LocalModel::new(model_id, cache_path);
+		let local_model = LocalModel::new(model_id, cache_path, false);
 
 		let sentence = "This is a test sentence.";
 		let embedding1 = local_model.predict(sentence);
@@ -191,7 +195,7 @@ mod tests {
 	fn test_hidden_size() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
 		let cache_path = PathBuf::from("~/.cache/manticore");
-		let local_model = LocalModel::new(model_id, cache_path);
+		let local_model = LocalModel::new(model_id, cache_path, false);
 		assert_eq!(local_model.get_hidden_size(), 384);
 	}
 
@@ -199,7 +203,7 @@ mod tests {
 	fn test_max_input_len() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
 		let cache_path = PathBuf::from("~/.cache/manticore");
-		let local_model = LocalModel::new(model_id, cache_path);
+		let local_model = LocalModel::new(model_id, cache_path, false);
 		assert_eq!(local_model.get_max_input_len(), 512);
 	}
 }

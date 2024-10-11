@@ -8,7 +8,8 @@ type LoadModelFn = extern "C" fn(
 	*const c_char,
 	usize,
 	*const c_char,
-	usize
+	usize,
+	bool,
 ) -> TextModelWrapper;
 
 type DeleteModelFn = extern "C" fn(TextModelWrapper);

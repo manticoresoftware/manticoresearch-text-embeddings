@@ -13,6 +13,7 @@ impl TextModelWrapper {
 		cache_path_len: usize,
 		api_key_ptr: *const c_char,
 		api_key_len: usize,
+		use_gpu: bool,
 	) -> Self {
 		let name = unsafe {
 			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
@@ -41,6 +42,7 @@ impl TextModelWrapper {
 			} else {
 				Some(api_key.to_string())
 			},
+			use_gpu: Some(use_gpu),
 		};
 
 		let model = create_model(options);
