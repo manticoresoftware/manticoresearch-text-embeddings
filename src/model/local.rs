@@ -161,7 +161,7 @@ mod tests {
 	#[test]
 	fn test_all_minilm_l6_v2() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let cache_path = PathBuf::from("~/.cache/manticore");
+		let cache_path = PathBuf::from(".cache/manticore");
 		let local_model = LocalModel::new(model_id, cache_path, false);
 
 		let test_sentences = [
@@ -179,7 +179,7 @@ mod tests {
 	#[test]
 	fn test_embedding_consistency() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let cache_path = PathBuf::from("~/.cache/manticore");
+		let cache_path = PathBuf::from(".cache/manticore");
 		let local_model = LocalModel::new(model_id, cache_path, false);
 
 		let sentence = "This is a test sentence.";
@@ -194,7 +194,7 @@ mod tests {
 	#[test]
 	fn test_hidden_size() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let cache_path = PathBuf::from("~/.cache/manticore");
+		let cache_path = PathBuf::from(".cache/manticore");
 		let local_model = LocalModel::new(model_id, cache_path, false);
 		assert_eq!(local_model.get_hidden_size(), 384);
 	}
@@ -202,7 +202,7 @@ mod tests {
 	#[test]
 	fn test_max_input_len() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let cache_path = PathBuf::from("~/.cache/manticore");
+		let cache_path = PathBuf::from(".cache/manticore");
 		let local_model = LocalModel::new(model_id, cache_path, false);
 		assert_eq!(local_model.get_max_input_len(), 512);
 	}

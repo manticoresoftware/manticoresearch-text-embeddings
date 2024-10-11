@@ -16,7 +16,7 @@ int main() {
 	// const char modelName[] = "openai/text-embedding-ada-002";
 	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2";
 	const uintptr_t modelNameLen = sizeof(modelName) - 1;
-	const char cachePath[] = "~/.cache/manticore";
+	const char cachePath[] = ".cache/manticore";
 	const uintptr_t cachePathLen = sizeof(cachePath) - 1;
 	const char apiKey[] = "";
 	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;

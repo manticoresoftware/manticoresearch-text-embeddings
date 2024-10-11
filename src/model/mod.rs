@@ -71,7 +71,7 @@ pub fn create_model(options: ModelOptions) -> Model {
 				model_id,
 				PathBuf::from(
 					options.cache_path
-						.unwrap_or(String::from("~/.cache/manticore"))
+						.unwrap_or(String::from(".cache/manticore"))
 				),
 				options.use_gpu.unwrap_or(false)
 			)
