@@ -2,11 +2,26 @@ use std::os::raw::c_char;
 use crate::model::FloatVec;
 use crate::model::text_model_wrapper::TextModelWrapper;
 
-type LoadModelFn = extern "C" fn (*const c_char, usize, *const c_char, usize) -> TextModelWrapper;
-type DeleteModelFn = extern "C" fn (TextModelWrapper);
-type MakeVectEmbeddingsFn = extern "C" fn (&TextModelWrapper, *const c_char, usize) -> FloatVec;
-type DeleteVecFn = extern "C" fn (FloatVec);
-type GetLenFn = extern "C" fn (&TextModelWrapper) -> usize;
+type LoadModelFn = extern "C" fn(
+	*const c_char,
+	usize,
+	*const c_char,
+	usize,
+	*const c_char,
+	usize
+) -> TextModelWrapper;
+
+type DeleteModelFn = extern "C" fn(TextModelWrapper);
+
+type MakeVectEmbeddingsFn = extern "C" fn(
+	&TextModelWrapper,
+	*const c_char,
+	usize
+) -> FloatVec;
+
+type DeleteVecFn = extern "C" fn(FloatVec);
+
+type GetLenFn = extern "C" fn(&TextModelWrapper) -> usize;
 
 #[repr(C)]
 pub struct EmbedLib {

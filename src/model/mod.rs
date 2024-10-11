@@ -2,6 +2,8 @@ mod openai;
 mod local;
 pub mod text_model_wrapper;
 
+use std::path::PathBuf;
+
 pub trait TextModel {
 	fn predict(&self, text: &str) -> Vec<f32>;
 	fn get_hidden_size(&self) -> usize;
@@ -18,6 +20,7 @@ pub struct FloatVec {
 #[repr(C)]
 pub struct ModelOptions {
 	model_id: String,
+	cache_path: Option<String>,
 	api_key: Option<String>,
 }
 
@@ -62,7 +65,14 @@ pub fn create_model(options: ModelOptions) -> Model {
 			)
 		)
 	} else {
-		Model::Local(local::LocalModel::new(model_id))
+		Model::Local(
+			local::LocalModel::new(
+				model_id,
+				PathBuf::from(
+					options.cache_path
+						.unwrap_or(String::from("~/.cache/manticore"))
+				)
+			)
+		)
 	}
 }
-

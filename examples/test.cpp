@@ -13,11 +13,21 @@ int main() {
 
 	// Create a new TextEmbeddings instance
 
-	const char modelName[] = "openai/text-embedding-3-small";
+	// const char modelName[] = "openai/text-embedding-ada-002";
+	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2";
 	const uintptr_t modelNameLen = sizeof(modelName) - 1;
-	const char apiKey[] = "your_api_key_here";
+	const char cachePath[] = "~/.cache/manticore";
+	const uintptr_t cachePathLen = sizeof(cachePath) - 1;
+	const char apiKey[] = "";
 	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;
-	TextModelWrapper pEngine = tLib->load_model(modelName, modelNameLen, apiKey, apiKeyLen);
+	TextModelWrapper pEngine = tLib->load_model(
+		modelName,
+		modelNameLen,
+		cachePath,
+		cachePathLen,
+		apiKey,
+		apiKeyLen,
+	);
 
 	FloatVec tEmbeddings = tLib->make_vect_embeddings ( &pEngine, text, text_len );
 

@@ -6,9 +6,21 @@ use crate::model::{Model, TextModel, create_model, ModelOptions, FloatVec};
 pub struct TextModelWrapper(*mut c_void);
 
 impl TextModelWrapper {
-	pub extern "C" fn load_model(name_ptr: *const c_char, name_len: usize, api_key_ptr: *const c_char, api_key_len: usize) -> Self {
+	pub extern "C" fn load_model(
+		name_ptr: *const c_char,
+		name_len: usize,
+		cache_path_ptr: *const c_char,
+		cache_path_len: usize,
+		api_key_ptr: *const c_char,
+		api_key_len: usize,
+	) -> Self {
 		let name = unsafe {
 			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
+			std::str::from_utf8_unchecked(slice)
+		};
+
+		let cache_path = unsafe {
+			let slice = std::slice::from_raw_parts(cache_path_ptr as *mut u8, cache_path_len);
 			std::str::from_utf8_unchecked(slice)
 		};
 
@@ -19,6 +31,11 @@ impl TextModelWrapper {
 
 		let options = ModelOptions {
 			model_id: name.to_string(),
+			cache_path: if cache_path.is_empty() {
+				None
+			} else {
+				Some(cache_path.to_string())
+			},
 			api_key: if api_key.is_empty() {
 				None
 			} else {

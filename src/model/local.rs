@@ -3,40 +3,59 @@ use candle_transformers::models::bert::{BertModel, Config, HiddenAct, DTYPE};
 use anyhow::{Error as E, Result};
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
-use hf_hub::{api::sync::Api, Repo, RepoType};
+use hf_hub::{api::sync::ApiBuilder, Repo, RepoType};
 use tokenizers::{DecoderWrapper, ModelWrapper, NormalizerWrapper, PostProcessorWrapper, PreTokenizerWrapper, Tokenizer, TokenizerImpl};
+use std::path::PathBuf;
 
 use crate::utils::{get_max_input_length, get_hidden_size, normalize, chunk_input_tokens, get_mean_vector};
 
-fn build_model_and_tokenizer(
+struct ModelInfo {
+	config_path: PathBuf,
+	tokenizer_path: PathBuf,
+	weights_path: PathBuf,
+	use_pth: bool,
+}
+
+fn build_model_info(
+	cache_path: PathBuf,
 	model_id: &str,
 	revision: &str,
 	use_pth: bool,
-) -> Result<(BertModel, Tokenizer, usize, usize)> {
-	let device = Device::Cpu;
+) -> Result<ModelInfo> {
 	let repo = Repo::with_revision(model_id.to_string(), RepoType::Model, revision.to_string());
-	let (config_filename, tokenizer_filename, weights_filename) = {
-		let api = Api::new()?;
-		let api = api.repo(repo);
-		let config = api.get("config.json")?;
-		let tokenizer = api.get("tokenizer.json")?;
-		let weights = if use_pth {
-			api.get("pytorch_model.bin")?
-		} else {
-			api.get("model.safetensors")?
-		};
-		(config, tokenizer, weights)
+	let api = ApiBuilder::new().with_cache_dir(cache_path).build()?;
+	let api = api.repo(repo);
+
+	let config_path = api.get("config.json")?;
+	let tokenizer_path = api.get("tokenizer.json")?;
+	let weights_path = if use_pth {
+		api.get("pytorch_model.bin")?
+	} else {
+		api.get("model.safetensors")?
 	};
-	let config = std::fs::read_to_string(config_filename)?;
+	Ok(ModelInfo{
+		config_path,
+		tokenizer_path,
+		weights_path,
+		use_pth,
+	})
+}
+
+fn build_model_and_tokenizer(
+	model: ModelInfo,
+	device: Device,
+) -> Result<(BertModel, Tokenizer, usize, usize)> {
+	let config = std::fs::read_to_string(model.config_path)?;
 	let max_input_len = get_max_input_length(&config)?;
 	let hidden_size = get_hidden_size(&config)?;
-	let mut config: Config = serde_json::from_str(&config)?;
-	let tokenizer: Tokenizer = Tokenizer::from_file(tokenizer_filename).map_err(E::msg)?;
 
-	let vb = if use_pth {
-		VarBuilder::from_pth(&weights_filename, DTYPE, &device)?
+	let mut config: Config = serde_json::from_str(&config)?;
+	let tokenizer: Tokenizer = Tokenizer::from_file(model.tokenizer_path).map_err(E::msg)?;
+
+	let vb = if model.use_pth {
+		VarBuilder::from_pth(&model.weights_path, DTYPE, &device)?
 	} else {
-		unsafe { VarBuilder::from_mmaped_safetensors(&[weights_filename], DTYPE, &device)? }
+		unsafe { VarBuilder::from_mmaped_safetensors(&[model.weights_path], DTYPE, &device)? }
 	};
 	config.hidden_act = HiddenAct::GeluApproximate;
 
@@ -52,11 +71,13 @@ pub struct LocalModel {
 }
 
 impl LocalModel {
-	pub fn new(model_id: &str) -> Self {
+	pub fn new(model_id: &str, cache_path: PathBuf) -> Self {
 		let revision = "main";
 		let use_pth = false;
+		let device = Device::Cpu;
+		let model_info = build_model_info(cache_path, model_id, revision, use_pth).unwrap();
 		let (model, mut tokenizer, max_input_len, hidden_size) =
-		build_model_and_tokenizer(model_id, revision, use_pth).unwrap();
+		build_model_and_tokenizer(model_info, device).unwrap();
 		let tokenizer = tokenizer
 			.with_padding(None)
 			.with_truncation(None)
@@ -136,7 +157,8 @@ mod tests {
 	#[test]
 	fn test_all_minilm_l6_v2() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let local_model = LocalModel::new(model_id);
+		let cache_path = PathBuf::from("~/.cache/manticore");
+		let local_model = LocalModel::new(model_id, cache_path);
 
 		let test_sentences = [
 			"This is a test sentence.",
@@ -153,7 +175,8 @@ mod tests {
 	#[test]
 	fn test_embedding_consistency() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let local_model = LocalModel::new(model_id);
+		let cache_path = PathBuf::from("~/.cache/manticore");
+		let local_model = LocalModel::new(model_id, cache_path);
 
 		let sentence = "This is a test sentence.";
 		let embedding1 = local_model.predict(sentence);
@@ -167,14 +190,16 @@ mod tests {
 	#[test]
 	fn test_hidden_size() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let local_model = LocalModel::new(model_id);
+		let cache_path = PathBuf::from("~/.cache/manticore");
+		let local_model = LocalModel::new(model_id, cache_path);
 		assert_eq!(local_model.get_hidden_size(), 384);
 	}
 
 	#[test]
 	fn test_max_input_len() {
 		let model_id = "sentence-transformers/all-MiniLM-L6-v2";
-		let local_model = LocalModel::new(model_id);
+		let cache_path = PathBuf::from("~/.cache/manticore");
+		let local_model = LocalModel::new(model_id, cache_path);
 		assert_eq!(local_model.get_max_input_len(), 512);
 	}
 }

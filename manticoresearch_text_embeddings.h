@@ -11,7 +11,12 @@
 
 using TextModelWrapper = void*;
 
-using LoadModelFn = TextModelWrapper(*)(const char*, uintptr_t, const char*, uintptr_t);
+using LoadModelFn = TextModelWrapper(*)(const char*,
+                                        uintptr_t,
+                                        const char*,
+                                        uintptr_t,
+                                        const char*,
+                                        uintptr_t);
 
 using DeleteModelFn = void(*)(TextModelWrapper);
 
