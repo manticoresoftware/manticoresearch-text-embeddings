@@ -11,13 +11,6 @@ pub trait TextModel {
 }
 
 #[repr(C)]
-pub struct FloatVec {
-	pub ptr: *const f32,
-	pub len: usize,
-	pub cap: usize,
-}
-
-#[repr(C)]
 pub struct ModelOptions {
 	model_id: String,
 	cache_path: Option<String>,
