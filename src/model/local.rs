@@ -79,20 +79,33 @@ impl LocalModel {
 		} else {
 			Device::Cpu
 		};
-		let model_info = build_model_info(cache_path, model_id, revision, use_pth).unwrap();
-		let (model, mut tokenizer, max_input_len, hidden_size) =
-		build_model_and_tokenizer(model_info, device).unwrap();
-		let tokenizer = tokenizer
-			.with_padding(None)
-			.with_truncation(None)
-			.map_err(E::msg)
-			.unwrap();
+		let result = std::panic::catch_unwind(|| {
+			let model_info = build_model_info(cache_path, model_id, revision, use_pth).unwrap();
+			let (model, mut tokenizer, max_input_len, hidden_size) =
+			build_model_and_tokenizer(model_info, device).unwrap();
+			let tokenizer = tokenizer
+				.with_padding(None)
+				.with_truncation(None)
+				.map_err(E::msg)
+				.unwrap();
 
-		Self {
-			model,
-			tokenizer: tokenizer.clone().into(),
-			max_input_len,
-			hidden_size,
+			Self {
+				model,
+				tokenizer: tokenizer.clone().into(),
+				max_input_len,
+				hidden_size,
+			}
+		});
+
+		match result {
+			Ok(model) => model,
+			Err(e) => {
+				let error = match e.downcast::<String>() {
+					Ok(e) => *e,
+					Err(_) => "Unknown error".to_string(),
+				};
+				panic!("Failed to create model: {}", error)
+			},
 		}
 	}
 }

@@ -3,6 +3,7 @@
 // clang -O3 -o test examples/test.c -I. -L target/release -lmanticoresearch_text_embeddings
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
 #include "manticoresearch_text_embeddings.h"
 
 int main() {
@@ -14,14 +15,14 @@ int main() {
 	// Create a new TextEmbeddings instance
 
 	// const char modelName[] = "openai/text-embedding-ada-002";
-	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2";
+	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2d";
 	const uintptr_t modelNameLen = sizeof(modelName) - 1;
 	const char cachePath[] = ".cache/manticore";
 	const uintptr_t cachePathLen = sizeof(cachePath) - 1;
 	const char apiKey[] = "";
 	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;
 	const bool useGpu = false;
-	TextModelWrapper pEngine = tLib->load_model(
+	TextModelResult pResult = tLib->load_model(
 		modelName,
 		modelNameLen,
 		cachePath,
@@ -30,16 +31,28 @@ int main() {
 		apiKeyLen,
 		useGpu
 	);
+	if (pResult.error) {
+		std::cerr << "Error: " << pResult.error << std::endl;
+		tLib->free_model_result(pResult);
+		return 1;
+	}
+	TextModelWrapper pEngine = pResult.model;
 
-	FloatVec tEmbeddings = tLib->make_vect_embeddings ( &pEngine, text, text_len );
+	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text, text_len );
+	if (tVecResult.error) {
+		std::cerr << "Error: " << tVecResult.error << std::endl;
+		tLib->free_vec_result(tVecResult);
+		return 1;
+	}
+	FloatVec tEmbeddings = tVecResult.vector;
 
 	for (int i = 0; i < tEmbeddings.len; ++i) {
 		printf("Embedding [%d]: %f\n", i, tEmbeddings.ptr[i]);
 	}
 
 	// Clean up
-	tLib->delete_vec ( tEmbeddings );
-	tLib->delete_model ( pEngine );
+	tLib->free_vec_result(tVecResult);
+	tLib->free_model_result(pResult);
 
 	return 0;
 }

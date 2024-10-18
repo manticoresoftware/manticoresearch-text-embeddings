@@ -4,8 +4,9 @@ include_guard = "MANTICORESEARCH_TEXT_EMBEDDINGS_H"
 header = "// Auto-generated file. Do not edit."
 
 [struct]
-derive_eq = true
-derive_neq = true
+derive_eq = false
+derive_neq = false
 
 [export]
-include = ["FloatVec", "TextModelWrapper"]
+include = ["FloatVecResult", "FloatVec", "TextModelResult", "TextModelWrapper"]
+
