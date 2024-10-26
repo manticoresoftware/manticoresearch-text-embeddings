@@ -68,7 +68,7 @@ impl TextModelWrapper {
 				use_gpu: Some(use_gpu),
 			};
 
-			create_model(options)
+			create_model(options).unwrap()
 		});
 
 		match result {
@@ -112,7 +112,7 @@ impl TextModelWrapper {
 				std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
 			};
 
-			let embeddings = self.as_model().predict(text);
+			let embeddings = self.as_model().predict(text).unwrap();
 			let ptr = embeddings.as_ptr();
 			let len = embeddings.len();
 			let cap = embeddings.capacity();
