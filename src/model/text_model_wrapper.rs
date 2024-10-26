@@ -2,6 +2,7 @@ use std::{ffi::c_void, ptr};
 use std::os::raw::c_char;
 use crate::model::{Model, TextModel, create_model, ModelOptions};
 
+/// cbindgen:field-names=[m_pModel, m_szError]
 #[repr(C)]
 pub struct TextModelResult {
 	model: *mut c_void,
@@ -19,6 +20,7 @@ pub struct FloatVec {
 	pub cap: usize,
 }
 
+/// cbindgen:field-names=[m_tEmbedding, m_szError]
 #[repr(C)]
 pub struct FloatVecResult {
 	vector: FloatVec,

@@ -25,7 +25,7 @@ type GetLenFn = extern "C" fn(&TextModelWrapper) -> usize;
 
 #[repr(C)]
 pub struct EmbedLib {
-	size: usize,
+	version: usize,
 	load_model: LoadModelFn,
 	free_model_result: FreeModelResultFn,
 	make_vect_embeddings: MakeVectEmbeddingsFn,
@@ -35,7 +35,7 @@ pub struct EmbedLib {
 }
 
 const LIB: EmbedLib = EmbedLib {
-	size: std::mem::size_of::<EmbedLib>(),
+	version: 1usize,
 	load_model: TextModelWrapper::load_model,
 	free_model_result: TextModelWrapper::free_model_result,
 	make_vect_embeddings: TextModelWrapper::make_vect_embeddings,

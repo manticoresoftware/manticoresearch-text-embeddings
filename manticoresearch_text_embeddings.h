@@ -10,8 +10,8 @@
 #include <new>
 
 struct TextModelResult {
-  void *model;
-  char *error;
+  void *m_pModel;
+  char *m_szError;
 };
 
 using LoadModelFn = TextModelResult(*)(const char*,
@@ -31,8 +31,8 @@ struct FloatVec {
 };
 
 struct FloatVecResult {
-  FloatVec vector;
-  char *error;
+  FloatVec m_tEmbedding;
+  char *m_szError;
 };
 
 using TextModelWrapper = void*;
@@ -44,7 +44,7 @@ using FreeVecResultFn = void(*)(FloatVecResult);
 using GetLenFn = uintptr_t(*)(const TextModelWrapper*);
 
 struct EmbedLib {
-  uintptr_t size;
+  uintptr_t version;
   LoadModelFn load_model;
   FreeModelResultFn free_model_result;
   MakeVectEmbeddingsFn make_vect_embeddings;
