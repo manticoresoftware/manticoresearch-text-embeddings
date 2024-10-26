@@ -15,7 +15,7 @@ int main() {
 	// Create a new TextEmbeddings instance
 
 	// const char modelName[] = "openai/text-embedding-ada-002";
-	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2d";
+	const char modelName[] = "sentence-transformers/all-MiniLM-L6-v2";
 	const uintptr_t modelNameLen = sizeof(modelName) - 1;
 	const char cachePath[] = ".cache/manticore";
 	const uintptr_t cachePathLen = sizeof(cachePath) - 1;
@@ -31,20 +31,20 @@ int main() {
 		apiKeyLen,
 		useGpu
 	);
-	if (pResult.error) {
-		std::cerr << "Error: " << pResult.error << std::endl;
+	if (pResult.m_szError) {
+		std::cerr << "Error: " << pResult.m_szError << std::endl;
 		tLib->free_model_result(pResult);
 		return 1;
 	}
-	TextModelWrapper pEngine = pResult.model;
+	TextModelWrapper pEngine = pResult.m_pModel;
 
 	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text, text_len );
-	if (tVecResult.error) {
-		std::cerr << "Error: " << tVecResult.error << std::endl;
+	if (tVecResult.m_szError) {
+		std::cerr << "Error: " << tVecResult.m_szError << std::endl;
 		tLib->free_vec_result(tVecResult);
 		return 1;
 	}
-	FloatVec tEmbeddings = tVecResult.vector;
+	FloatVec tEmbeddings = tVecResult.m_tEmbedding;
 
 	for (int i = 0; i < tEmbeddings.len; ++i) {
 		printf("Embedding [%d]: %f\n", i, tEmbeddings.ptr[i]);
