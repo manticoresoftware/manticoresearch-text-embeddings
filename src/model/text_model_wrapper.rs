@@ -37,51 +37,43 @@ impl TextModelWrapper {
 		api_key_len: usize,
 		use_gpu: bool,
 	) -> TextModelResult {
-		let result = std::panic::catch_unwind(|| {
-			let name = unsafe {
-				let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
-				std::str::from_utf8_unchecked(slice)
-			};
+		let name = unsafe {
+			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
+			std::str::from_utf8_unchecked(slice)
+		};
 
-			let cache_path = unsafe {
-				let slice = std::slice::from_raw_parts(cache_path_ptr as *mut u8, cache_path_len);
-				std::str::from_utf8_unchecked(slice)
-			};
+		let cache_path = unsafe {
+			let slice = std::slice::from_raw_parts(cache_path_ptr as *mut u8, cache_path_len);
+			std::str::from_utf8_unchecked(slice)
+		};
 
-			let api_key = unsafe {
-				let slice = std::slice::from_raw_parts(api_key_ptr as *mut u8, api_key_len);
-				std::str::from_utf8_unchecked(slice)
-			};
+		let api_key = unsafe {
+			let slice = std::slice::from_raw_parts(api_key_ptr as *mut u8, api_key_len);
+			std::str::from_utf8_unchecked(slice)
+		};
 
-			let options = ModelOptions {
-				model_id: name.to_string(),
-				cache_path: if cache_path.is_empty() {
-					None
-				} else {
-					Some(cache_path.to_string())
-				},
-				api_key: if api_key.is_empty() {
-					None
-				} else {
-					Some(api_key.to_string())
-				},
-				use_gpu: Some(use_gpu),
-			};
+		let options = ModelOptions {
+			model_id: name.to_string(),
+			cache_path: if cache_path.is_empty() {
+				None
+			} else {
+				Some(cache_path.to_string())
+			},
+			api_key: if api_key.is_empty() {
+				None
+			} else {
+				Some(api_key.to_string())
+			},
+			use_gpu: Some(use_gpu),
+		};
 
-			create_model(options).unwrap()
-		});
-
-		match result {
+		match create_model(options) {
 			Ok(model) => TextModelResult {
 				model: Box::into_raw(Box::new(model)) as *mut c_void,
 				error: ptr::null_mut(),
 			},
 			Err(e) => {
-				let error = match e.downcast::<String>() {
-					Ok(e) => *e,
-					Err(_) => "Unknown error".to_string(),
-				};
-				let c_error = std::ffi::CString::new(error).unwrap();
+				let c_error = std::ffi::CString::new(e.to_string()).unwrap();
 				TextModelResult {
 					model: ptr::null_mut(),
 					error: c_error.into_raw(),
@@ -107,29 +99,26 @@ impl TextModelWrapper {
 	}
 
 	pub extern "C" fn make_vect_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> FloatVecResult {
-		let result = std::panic::catch_unwind(|| {
-			let text = unsafe {
-				std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
-			};
+		let text = unsafe {
+			std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
+		};
 
-			let embeddings = self.as_model().predict(text).unwrap();
-			let ptr = embeddings.as_ptr();
-			let len = embeddings.len();
-			let cap = embeddings.capacity();
-			std::mem::forget(embeddings);
-			FloatVec { ptr, len, cap }
-		});
-		match result {
-			Ok(embeddings) => FloatVecResult {
-				vector: embeddings,
-				error: ptr::null_mut(),
+		let embeddings = self.as_model().predict(text);
+		match embeddings {
+			Ok(embeddings) => {
+				let ptr = embeddings.as_ptr();
+				let len = embeddings.len();
+				let cap = embeddings.capacity();
+				std::mem::forget(embeddings);
+				let vec = FloatVec { ptr, len, cap };
+
+				FloatVecResult {
+					vector: vec,
+					error: ptr::null_mut(),
+				}
 			},
 			Err(e) => {
-				let error = match e.downcast::<String>() {
-					Ok(e) => *e,
-					Err(_) => "Unknown error".to_string(),
-				};
-				let c_error = std::ffi::CString::new(error).unwrap();
+				let c_error = std::ffi::CString::new(e.to_string()).unwrap();
 				FloatVecResult {
 					vector: FloatVec { ptr: ptr::null(), len: 0, cap: 0 },
 					error: c_error.into_raw(),
