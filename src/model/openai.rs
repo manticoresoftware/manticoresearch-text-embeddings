@@ -1,4 +1,5 @@
 use super::TextModel;
+use crate::LibError;
 use reqwest::blocking::Client;
 
 pub struct OpenAIModel {
@@ -28,20 +29,20 @@ fn validate_api_key(api_key: &str) -> Result<(), String> {
 }
 
 impl OpenAIModel {
-	pub fn new(model_id: &str, api_key: &str) -> Self {
+	pub fn new(model_id: &str, api_key: &str) -> Result<Self, Box<dyn std::error::Error>> {
 		let model = model_id.trim_start_matches("openai/").to_string();
-		validate_model(&model).expect("Invalid model");
-		validate_api_key(&api_key).expect("Invalid API key");
-		Self {
+		validate_model(&model).map_err(|_| LibError::RemoteUnsupportedModel)?;
+		validate_api_key(&api_key).map_err(|_| LibError::RemoteInvalidAPIKey)?;
+		Ok(Self {
 			client: Client::new(),
 			model,
 			api_key: api_key.to_string(),
-		}
+		})
 	}
 }
 
 impl TextModel for OpenAIModel {
-	fn predict(&self, text: &str) -> Vec<f32> {
+	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
 		let url = "https://api.openai.com/v1/embeddings";
 
 		let request_body = serde_json::json!({
@@ -55,20 +56,20 @@ impl TextModel for OpenAIModel {
 			.header("Content-Type", "application/json")
 			.json(&request_body)
 			.send()
-			.expect("Failed to send request");
+			.map_err(|_| LibError::RemoteRequestSendFailed)?;
 
 		let response_body: serde_json::Value = response
 			.json()
-			.expect("Failed to parse response");
+			.map_err(|_| LibError::RemoteResponseParseFailed)?;
 
 		let embedding = response_body["data"][0]["embedding"]
 			.as_array()
-			.expect("Failed to get embedding array")
+			.unwrap_or(&Vec::new())
 			.iter()
 			.map(|v| v.as_f64().unwrap() as f32)
 			.collect();
 
-		embedding
+		Ok(embedding)
 	}
 
 	fn get_hidden_size(&self) -> usize {

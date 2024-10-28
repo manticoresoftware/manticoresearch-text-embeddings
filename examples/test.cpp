@@ -3,6 +3,7 @@
 // clang -O3 -o test examples/test.c -I. -L target/release -lmanticoresearch_text_embeddings
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
 #include "manticoresearch_text_embeddings.h"
 
 int main() {
@@ -21,7 +22,7 @@ int main() {
 	const char apiKey[] = "";
 	const uintptr_t apiKeyLen = sizeof(apiKey) - 1;
 	const bool useGpu = false;
-	TextModelWrapper pEngine = tLib->load_model(
+	TextModelResult pResult = tLib->load_model(
 		modelName,
 		modelNameLen,
 		cachePath,
@@ -30,16 +31,28 @@ int main() {
 		apiKeyLen,
 		useGpu
 	);
+	if (pResult.m_szError) {
+		std::cerr << "Error: " << pResult.m_szError << std::endl;
+		tLib->free_model_result(pResult);
+		return 1;
+	}
+	TextModelWrapper pEngine = pResult.m_pModel;
 
-	FloatVec tEmbeddings = tLib->make_vect_embeddings ( &pEngine, text, text_len );
+	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text, text_len );
+	if (tVecResult.m_szError) {
+		std::cerr << "Error: " << tVecResult.m_szError << std::endl;
+		tLib->free_vec_result(tVecResult);
+		return 1;
+	}
+	FloatVec tEmbeddings = tVecResult.m_tEmbedding;
 
 	for (int i = 0; i < tEmbeddings.len; ++i) {
 		printf("Embedding [%d]: %f\n", i, tEmbeddings.ptr[i]);
 	}
 
 	// Clean up
-	tLib->delete_vec ( tEmbeddings );
-	tLib->delete_model ( pEngine );
+	tLib->free_vec_result(tVecResult);
+	tLib->free_model_result(pResult);
 
 	return 0;
 }

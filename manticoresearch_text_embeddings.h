@@ -9,68 +9,48 @@
 #include <ostream>
 #include <new>
 
-using TextModelWrapper = void*;
+struct TextModelResult {
+  void *m_pModel;
+  char *m_szError;
+};
 
-using LoadModelFn = TextModelWrapper(*)(const char*,
-                                        uintptr_t,
-                                        const char*,
-                                        uintptr_t,
-                                        const char*,
-                                        uintptr_t,
-                                        bool);
+using LoadModelFn = TextModelResult(*)(const char*,
+                                       uintptr_t,
+                                       const char*,
+                                       uintptr_t,
+                                       const char*,
+                                       uintptr_t,
+                                       bool);
 
-using DeleteModelFn = void(*)(TextModelWrapper);
+using FreeModelResultFn = void(*)(TextModelResult);
 
 struct FloatVec {
   const float *ptr;
   uintptr_t len;
   uintptr_t cap;
-
-  bool operator==(const FloatVec& other) const {
-    return ptr == other.ptr &&
-           len == other.len &&
-           cap == other.cap;
-  }
-  bool operator!=(const FloatVec& other) const {
-    return ptr != other.ptr ||
-           len != other.len ||
-           cap != other.cap;
-  }
 };
 
-using MakeVectEmbeddingsFn = FloatVec(*)(const TextModelWrapper*, const char*, uintptr_t);
+struct FloatVecResult {
+  FloatVec m_tEmbedding;
+  char *m_szError;
+};
 
-using DeleteVecFn = void(*)(FloatVec);
+using TextModelWrapper = void*;
+
+using MakeVectEmbeddingsFn = FloatVecResult(*)(const TextModelWrapper*, const char*, uintptr_t);
+
+using FreeVecResultFn = void(*)(FloatVecResult);
 
 using GetLenFn = uintptr_t(*)(const TextModelWrapper*);
 
 struct EmbedLib {
-  uintptr_t size;
+  uintptr_t version;
   LoadModelFn load_model;
-  DeleteModelFn delete_model;
+  FreeModelResultFn free_model_result;
   MakeVectEmbeddingsFn make_vect_embeddings;
-  DeleteVecFn delete_vec;
+  FreeVecResultFn free_vec_result;
   GetLenFn get_hidden_size;
   GetLenFn get_max_input_size;
-
-  bool operator==(const EmbedLib& other) const {
-    return size == other.size &&
-           load_model == other.load_model &&
-           delete_model == other.delete_model &&
-           make_vect_embeddings == other.make_vect_embeddings &&
-           delete_vec == other.delete_vec &&
-           get_hidden_size == other.get_hidden_size &&
-           get_max_input_size == other.get_max_input_size;
-  }
-  bool operator!=(const EmbedLib& other) const {
-    return size != other.size ||
-           load_model != other.load_model ||
-           delete_model != other.delete_model ||
-           make_vect_embeddings != other.make_vect_embeddings ||
-           delete_vec != other.delete_vec ||
-           get_hidden_size != other.get_hidden_size ||
-           get_max_input_size != other.get_max_input_size;
-  }
 };
 
 extern "C" {

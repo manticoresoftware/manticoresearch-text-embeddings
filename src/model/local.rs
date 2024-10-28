@@ -1,6 +1,7 @@
 use super::TextModel;
+use crate::LibError;
 use candle_transformers::models::bert::{BertModel, Config, HiddenAct, DTYPE};
-use anyhow::{Error as E, Result};
+use anyhow::Result;
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 use hf_hub::{api::sync::ApiBuilder, Repo, RepoType};
@@ -23,15 +24,15 @@ fn build_model_info(
 	use_pth: bool,
 ) -> Result<ModelInfo> {
 	let repo = Repo::with_revision(model_id.to_string(), RepoType::Model, revision.to_string());
-	let api = ApiBuilder::new().with_cache_dir(cache_path).build()?;
+	let api = ApiBuilder::new().with_cache_dir(cache_path).build().map_err(|_| LibError::HuggingFaceApiBuildFailed)?;
 	let api = api.repo(repo);
 
-	let config_path = api.get("config.json")?;
-	let tokenizer_path = api.get("tokenizer.json")?;
+	let config_path = api.get("config.json").map_err(|_| LibError::ModelConfigFetchFailed)?;
+	let tokenizer_path = api.get("tokenizer.json").map_err(|_| LibError::ModelTokenizerFetchFailed)?;
 	let weights_path = if use_pth {
-		api.get("pytorch_model.bin")?
+		api.get("pytorch_model.bin").map_err(|_| LibError::ModelWeightsFetchFailed)?
 	} else {
-		api.get("model.safetensors")?
+		api.get("model.safetensors").map_err(|_| LibError::ModelWeightsFetchFailed)?
 	};
 	Ok(ModelInfo{
 		config_path,
@@ -45,21 +46,21 @@ fn build_model_and_tokenizer(
 	model: ModelInfo,
 	device: Device,
 ) -> Result<(BertModel, Tokenizer, usize, usize)> {
-	let config = std::fs::read_to_string(model.config_path)?;
-	let max_input_len = get_max_input_length(&config)?;
-	let hidden_size = get_hidden_size(&config)?;
+	let config = std::fs::read_to_string(model.config_path).map_err(|_| LibError::ModelConfigReadFailed)?;
+	let max_input_len = get_max_input_length(&config).map_err(|_| LibError::ModelMaxInputLenGetFailed)?;
+	let hidden_size = get_hidden_size(&config).map_err(|_| LibError::ModelHiddenSizeGetFailed)?;
 
-	let mut config: Config = serde_json::from_str(&config)?;
-	let tokenizer: Tokenizer = Tokenizer::from_file(model.tokenizer_path).map_err(E::msg)?;
+	let mut config: Config = serde_json::from_str(&config).map_err(|_| LibError::ModelConfigParseFailed)?;
+	let tokenizer: Tokenizer = Tokenizer::from_file(model.tokenizer_path).map_err(|_| LibError::ModelTokenizerLoadFailed)?;
 
 	let vb = if model.use_pth {
-		VarBuilder::from_pth(&model.weights_path, DTYPE, &device)?
+		VarBuilder::from_pth(&model.weights_path, DTYPE, &device).map_err(|_| LibError::ModelWeightsLoadFailed)?
 	} else {
-		unsafe { VarBuilder::from_mmaped_safetensors(&[model.weights_path], DTYPE, &device)? }
+		unsafe { VarBuilder::from_mmaped_safetensors(&[model.weights_path], DTYPE, &device).map_err(|_| LibError::ModelWeightsLoadFailed)? }
 	};
 	config.hidden_act = HiddenAct::GeluApproximate;
 
-	let model = BertModel::load(vb, &config)?;
+	let model = BertModel::load(vb, &config).map_err(|_| LibError::ModelLoadFailed)?;
 	Ok((model, tokenizer, max_input_len, hidden_size))
 }
 
@@ -71,29 +72,29 @@ pub struct LocalModel {
 }
 
 impl LocalModel {
-	pub fn new(model_id: &str, cache_path: PathBuf, use_gpu: bool) -> Self {
+	pub fn new(model_id: &str, cache_path: PathBuf, use_gpu: bool) -> Result<Self, Box<dyn std::error::Error>> {
 		let revision = "main";
 		let use_pth = false;
 		let device = if use_gpu {
-			Device::new_cuda(0).unwrap()
+			Device::new_cuda(0).map_err(|_| LibError::DeviceCudaInitFailed)?
 		} else {
 			Device::Cpu
 		};
-		let model_info = build_model_info(cache_path, model_id, revision, use_pth).unwrap();
+
+		let model_info = build_model_info(cache_path, model_id, revision, use_pth)?;
 		let (model, mut tokenizer, max_input_len, hidden_size) =
-		build_model_and_tokenizer(model_info, device).unwrap();
+		build_model_and_tokenizer(model_info, device)?;
 		let tokenizer = tokenizer
 			.with_padding(None)
 			.with_truncation(None)
-			.map_err(E::msg)
-			.unwrap();
+			.map_err(|_| LibError::ModelTokenizerConfigurationFailed)?;
 
-		Self {
+		Ok(Self {
 			model,
 			tokenizer: tokenizer.clone().into(),
 			max_input_len,
 			hidden_size,
-		}
+		})
 	}
 }
 
@@ -105,34 +106,32 @@ impl serde::Serialize for LocalModel {
 }
 
 impl TextModel for LocalModel {
-	fn predict(&self, text: &str) -> Vec<f32> {
+	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
 		let device = &self.model.device;
 		let tokens = self.tokenizer
 			.encode(text, true)
-			.map_err(E::msg)
-			.unwrap()
+			.map_err(|_| LibError::ModelTokenizerEncodeFailed)?
 			.get_ids()
 			.to_vec();
 		let chunks = chunk_input_tokens(&tokens, self.max_input_len, (self.max_input_len / 10) as usize);
 		let mut results: Vec<Vec<f32>> = Vec::new();
 		for chunk in chunks.iter() {
-			let token_ids = Tensor::new(&chunk[..], device).unwrap().unsqueeze(0).unwrap();
-			let token_type_ids = token_ids.zeros_like().unwrap();
-			let embeddings = self.model.forward(&token_ids, &token_type_ids).unwrap();
+			let token_ids = Tensor::new(&chunk[..], device)?.unsqueeze(0)?;
+			let token_type_ids = token_ids.zeros_like()?;
+			let embeddings = self.model.forward(&token_ids, &token_type_ids)?;
 
-			// Apply some avg-pooling by taking the mean embedding value for all tokens (including padding)
-			let (n_sentences, n_tokens, _hidden_size) = embeddings.dims3().unwrap();
-			let embeddings = (embeddings.sum(1).unwrap() / (n_tokens as f64)).unwrap();
+			let (n_sentences, n_tokens, _hidden_size) = embeddings.dims3()?;
+			let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
 
 			for j in 0..n_sentences {
-				let e_j = embeddings.get(j).unwrap();
-				let mut emb: Vec<f32> = e_j.to_vec1().unwrap();
+				let e_j = embeddings.get(j)?;
+				let mut emb: Vec<f32> = e_j.to_vec1()?;
 				normalize(&mut emb);
 				results.push(emb);
 				break;
 			}
 		}
-		get_mean_vector(&results)
+		Ok(get_mean_vector(&results))
 	}
 
 	fn get_hidden_size(&self) -> usize {

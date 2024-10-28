@@ -3,18 +3,12 @@ mod local;
 pub mod text_model_wrapper;
 
 use std::path::PathBuf;
+use std::error::Error;
 
 pub trait TextModel {
-	fn predict(&self, text: &str) -> Vec<f32>;
+	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn Error>>;
 	fn get_hidden_size(&self) -> usize;
 	fn get_max_input_len(&self) -> usize;
-}
-
-#[repr(C)]
-pub struct FloatVec {
-	pub ptr: *const f32,
-	pub len: usize,
-	pub cap: usize,
 }
 
 #[repr(C)]
@@ -32,7 +26,7 @@ pub enum Model {
 }
 
 impl TextModel for Model {
-	fn predict(&self, text: &str) -> Vec<f32> {
+	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn Error>> {
 		match self {
 			Model::OpenAI(m) => m.predict(text),
 			Model::Local(m) => m.predict(text),
@@ -54,27 +48,27 @@ impl TextModel for Model {
 	}
 }
 
-pub fn create_model(options: ModelOptions) -> Model {
+pub fn create_model(options: ModelOptions) -> Result<Model, Box<dyn Error>> {
 	let model_id = options.model_id.as_str();
 	if model_id.starts_with("openai/") {
-		Model::OpenAI(
-			openai::OpenAIModel::new(
-				model_id,
-				options.api_key
-					.unwrap_or(String::new())
-					.as_str()
-			)
-		)
+		let model = openai::OpenAIModel::new(
+			model_id,
+			options.api_key
+				.unwrap_or(String::new())
+				.as_str()
+		)?;
+
+		Ok(Model::OpenAI(model))
 	} else {
-		Model::Local(
-			local::LocalModel::new(
-				model_id,
-				PathBuf::from(
-					options.cache_path
-						.unwrap_or(String::from(".cache/manticore"))
-				),
-				options.use_gpu.unwrap_or(false)
-			)
-		)
+		let model = local::LocalModel::new(
+			model_id,
+			PathBuf::from(
+				options.cache_path
+					.unwrap_or(String::from(".cache/manticore"))
+			),
+			options.use_gpu.unwrap_or(false)
+		)?;
+
+		Ok(Model::Local(model))
 	}
 }

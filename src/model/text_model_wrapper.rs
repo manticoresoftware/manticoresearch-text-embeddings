@@ -1,9 +1,31 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, ptr};
 use std::os::raw::c_char;
-use crate::model::{Model, TextModel, create_model, ModelOptions, FloatVec};
+use crate::model::{Model, TextModel, create_model, ModelOptions};
+
+/// cbindgen:field-names=[m_pModel, m_szError]
+#[repr(C)]
+pub struct TextModelResult {
+	model: *mut c_void,
+	error: *mut c_char,
+}
 
 #[repr(transparent)]
 pub struct TextModelWrapper(*mut c_void);
+
+
+#[repr(C)]
+pub struct FloatVec {
+	pub ptr: *const f32,
+	pub len: usize,
+	pub cap: usize,
+}
+
+/// cbindgen:field-names=[m_tEmbedding, m_szError]
+#[repr(C)]
+pub struct FloatVecResult {
+	vector: FloatVec,
+	error: *mut c_char,
+}
 
 impl TextModelWrapper {
 	pub extern "C" fn load_model(
@@ -14,7 +36,7 @@ impl TextModelWrapper {
 		api_key_ptr: *const c_char,
 		api_key_len: usize,
 		use_gpu: bool,
-	) -> Self {
+	) -> TextModelResult {
 		let name = unsafe {
 			let slice = std::slice::from_raw_parts(name_ptr as *mut u8, name_len);
 			std::str::from_utf8_unchecked(slice)
@@ -45,13 +67,30 @@ impl TextModelWrapper {
 			use_gpu: Some(use_gpu),
 		};
 
-		let model = create_model(options);
-		TextModelWrapper(Box::into_raw(Box::new(model)) as *mut c_void)
+		match create_model(options) {
+			Ok(model) => TextModelResult {
+				model: Box::into_raw(Box::new(model)) as *mut c_void,
+				error: ptr::null_mut(),
+			},
+			Err(e) => {
+				let c_error = std::ffi::CString::new(e.to_string()).unwrap();
+				TextModelResult {
+					model: ptr::null_mut(),
+					error: c_error.into_raw(),
+				}
+			}
+		}
 	}
 
-	pub extern "C" fn delete_model(self) {
+	pub extern "C" fn free_model_result(res: TextModelResult) {
 		unsafe {
-			drop(Box::from_raw(self.0 as *mut Model));
+			if !res.model.is_null() {
+				drop(Box::from_raw(res.model as *mut Model));
+			}
+
+			if !res.error.is_null() {
+				let _ = std::ffi::CString::from_raw(res.error);
+			}
 		}
 	}
 
@@ -59,23 +98,42 @@ impl TextModelWrapper {
 		unsafe { &*(self.0 as *const Model) }
 	}
 
-	pub extern "C" fn make_vect_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> FloatVec {
+	pub extern "C" fn make_vect_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> FloatVecResult {
 		let text = unsafe {
 			std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
 		};
 
 		let embeddings = self.as_model().predict(text);
-		let ptr = embeddings.as_ptr();
-		let len = embeddings.len();
-		let cap = embeddings.capacity();
-		std::mem::forget(embeddings);
+		match embeddings {
+			Ok(embeddings) => {
+				let ptr = embeddings.as_ptr();
+				let len = embeddings.len();
+				let cap = embeddings.capacity();
+				std::mem::forget(embeddings);
+				let vec = FloatVec { ptr, len, cap };
 
-		FloatVec { ptr, len, cap }
+				FloatVecResult {
+					vector: vec,
+					error: ptr::null_mut(),
+				}
+			},
+			Err(e) => {
+				let c_error = std::ffi::CString::new(e.to_string()).unwrap();
+				FloatVecResult {
+					vector: FloatVec { ptr: ptr::null(), len: 0, cap: 0 },
+					error: c_error.into_raw(),
+				}
+			}
+		}
 	}
 
-	pub extern "C" fn delete_vec(vec: FloatVec) {
+	pub extern "C" fn free_vec_result(vec: FloatVecResult) {
 		unsafe {
-			Vec::from_raw_parts(vec.ptr as *mut f32, vec.len, vec.cap);
+			Vec::from_raw_parts(vec.vector.ptr as *mut FloatVec, vec.vector.len, vec.vector.cap);
+
+			if !vec.error.is_null() {
+				let _ = std::ffi::CString::from_raw(vec.error);
+			}
 		}
 	}
 
@@ -87,3 +145,4 @@ impl TextModelWrapper {
 		self.as_model().get_max_input_len()
 	}
 }
+
