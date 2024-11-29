@@ -42,26 +42,27 @@ int main() {
 	TextModelWrapper pEngine = pResult.m_pModel;
 	printf("Model loaded successfully\n");
 
-	FloatVecList tVecList = tLib->make_vect_embeddings ( &pEngine, text_list.data(), text_list.size() );
+	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text_list.data(), text_list.size() );
+
+	if (tVecResult.m_szError) {
+		std::cerr << "Error: " << tVecResult.m_szError << std::endl;
+		return 1;
+	}
+
 	printf("Embeddings computed successfully\n");
-	for (size_t i = 0; i < tVecList.len; ++i) {
+	for (size_t i = 0; i < tVecResult.len; ++i) {
 		printf("Embeddings for text %zu\n", i);
-		const FloatVecResult& tVecResult = tVecList.ptr[i];
-		printf("Vector size: %zu\n", tVecResult.m_tEmbedding.len);
-		if (tVecResult.m_szError) {
-			std::cerr << "Error: " << tVecResult.m_szError << std::endl;
-			return 1;
-		}
-		FloatVec tEmbeddings = tVecResult.m_tEmbedding;
+		const FloatVec& tVec = tVecResult.m_tEmbedding[i];
+		printf("Vector size: %zu\n", tVec.len);
 
 		printf("Iterating over embeddings\n");
-		for (int j = 0; j < tEmbeddings.len; ++j) {
-			printf("Embedding [%d]: %f\n", j, tEmbeddings.ptr[j]);
+		for (int j = 0; j < tVec.len; ++j) {
+			printf("Embedding [%d]: %f\n", j, tVec.ptr[j]);
 		}
 	}
 
 	// Clean up
-	tLib->free_vec_list(tVecList);
+	tLib->free_vec_result(tVecResult);
 	tLib->free_model_result(pResult);
 
 	return 0;

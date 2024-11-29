@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::error::Error;
 
 pub trait TextModel {
-	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn Error>>;
+	fn predict(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, Box<dyn Error>>;
 	fn get_hidden_size(&self) -> usize;
 	fn get_max_input_len(&self) -> usize;
 }
@@ -26,10 +26,10 @@ pub enum Model {
 }
 
 impl TextModel for Model {
-	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn Error>> {
+	fn predict(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
 		match self {
-			Model::OpenAI(m) => m.predict(text),
-			Model::Local(m) => m.predict(text),
+			Model::OpenAI(m) => m.predict(texts),
+			Model::Local(m) => m.predict(texts),
 		}
 	}
 
