@@ -35,11 +35,22 @@ struct FloatVecResult {
   char *m_szError;
 };
 
+struct FloatVecList {
+  const FloatVecResult *ptr;
+  uintptr_t len;
+  uintptr_t cap;
+};
+
 using TextModelWrapper = void*;
 
-using MakeVectEmbeddingsFn = FloatVecResult(*)(const TextModelWrapper*, const char*, uintptr_t);
+struct StringItem {
+  const char *ptr;
+  uintptr_t len;
+};
 
-using FreeVecResultFn = void(*)(FloatVecResult);
+using MakeVectEmbeddingsFn = FloatVecList(*)(const TextModelWrapper*, const StringItem*, uintptr_t);
+
+using FreeVecListFn = void(*)(FloatVecList);
 
 using GetLenFn = uintptr_t(*)(const TextModelWrapper*);
 
@@ -48,7 +59,7 @@ struct EmbedLib {
   LoadModelFn load_model;
   FreeModelResultFn free_model_result;
   MakeVectEmbeddingsFn make_vect_embeddings;
-  FreeVecResultFn free_vec_result;
+  FreeVecListFn free_vec_list;
   GetLenFn get_hidden_size;
   GetLenFn get_max_input_size;
 };

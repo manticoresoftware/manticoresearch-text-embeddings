@@ -20,11 +20,24 @@ pub struct FloatVec {
 	pub cap: usize,
 }
 
+#[repr(C)]
+pub struct FloatVecList {
+	pub ptr: *const FloatVecResult,
+	pub len: usize,
+	pub cap: usize,
+}
+
 /// cbindgen:field-names=[m_tEmbedding, m_szError]
 #[repr(C)]
 pub struct FloatVecResult {
 	vector: FloatVec,
 	error: *mut c_char,
+}
+
+#[repr(C)]
+pub struct StringItem {
+    ptr: *const c_char,
+    len: usize,
 }
 
 impl TextModelWrapper {
@@ -98,42 +111,80 @@ impl TextModelWrapper {
 		unsafe { &*(self.0 as *const Model) }
 	}
 
-	pub extern "C" fn make_vect_embeddings(&self, text_ptr: *const c_char, text_len: usize) -> FloatVecResult {
-		let text = unsafe {
-			std::str::from_utf8_unchecked(std::slice::from_raw_parts(text_ptr as *const u8, text_len))
+	pub extern "C" fn make_vect_embeddings(
+		&self,
+		texts: *const StringItem,
+		count: usize
+	) -> FloatVecList {
+		let string_slice = unsafe {
+			std::slice::from_raw_parts(texts, count)
 		};
 
-		let embeddings = self.as_model().predict(text);
-		match embeddings {
-			Ok(embeddings) => {
-				let ptr = embeddings.as_ptr();
-				let len = embeddings.len();
-				let cap = embeddings.capacity();
-				std::mem::forget(embeddings);
-				let vec = FloatVec { ptr, len, cap };
+		let strings: Vec<&str> = string_slice.iter()
+			.map(|item| unsafe {
+				std::str::from_utf8_unchecked(
+					std::slice::from_raw_parts(item.ptr as *const u8, item.len)
+				)
+			})
+			.collect();
 
-				FloatVecResult {
-					vector: vec,
-					error: ptr::null_mut(),
+		let mut float_result_list: Vec<FloatVecResult> = Vec::new();
+		let model = self.as_model();
+		for text in strings.iter() {
+			let embeddings = model.predict(text);
+			let float_result = match embeddings {
+				Ok(embeddings) => {
+					let ptr = embeddings.as_ptr();
+					let len = embeddings.len();
+					let cap = embeddings.capacity();
+					std::mem::forget(embeddings);
+					let vec = FloatVec { ptr, len, cap };
+
+					FloatVecResult { vector: vec, error: ptr::null_mut() }
+				},
+				Err(e) => {
+					let c_error = std::ffi::CString::new(e.to_string()).unwrap();
+					let vec = FloatVec { ptr: ptr::null(), len: 0, cap: 0 };
+					FloatVecResult { vector: vec, error: c_error.into_raw() }
 				}
-			},
-			Err(e) => {
-				let c_error = std::ffi::CString::new(e.to_string()).unwrap();
-				FloatVecResult {
-					vector: FloatVec { ptr: ptr::null(), len: 0, cap: 0 },
-					error: c_error.into_raw(),
-				}
-			}
+			};
+			float_result_list.push(float_result);
 		}
+		let vec_list = FloatVecList {
+			ptr: float_result_list.as_ptr(),
+			len: float_result_list.len(),
+			cap: float_result_list.capacity()
+		};
+		std::mem::forget(float_result_list);
+		vec_list
 	}
 
-	pub extern "C" fn free_vec_result(vec: FloatVecResult) {
+	pub extern "C" fn free_vec_list(vec_list: FloatVecList) {
 		unsafe {
-			Vec::from_raw_parts(vec.vector.ptr as *mut FloatVec, vec.vector.len, vec.vector.cap);
+			let slice = std::slice::from_raw_parts(vec_list.ptr, vec_list.len);
 
-			if !vec.error.is_null() {
-				let _ = std::ffi::CString::from_raw(vec.error);
+			for result in slice {
+				// Free the FloatVec's inner buffer
+				if !result.vector.ptr.is_null() {
+					let _ = Vec::from_raw_parts(
+						result.vector.ptr as *mut f32,
+						result.vector.len,
+						result.vector.cap
+					);
+				}
+
+				// Free the error string if it exists
+				if !result.error.is_null() {
+					let _ = std::ffi::CString::from_raw(result.error);
+				}
 			}
+
+			// Free the FloatVecList's array of FloatVecResult
+			let _ = Vec::from_raw_parts(
+				vec_list.ptr as *mut FloatVecResult,
+				vec_list.len,
+				vec_list.cap
+			);
 		}
 	}
 
