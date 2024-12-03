@@ -106,32 +106,37 @@ impl serde::Serialize for LocalModel {
 }
 
 impl TextModel for LocalModel {
-	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+	fn predict(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, Box<dyn std::error::Error>> {
 		let device = &self.model.device;
-		let tokens = self.tokenizer
-			.encode(text, true)
-			.map_err(|_| LibError::ModelTokenizerEncodeFailed)?
-			.get_ids()
-			.to_vec();
-		let chunks = chunk_input_tokens(&tokens, self.max_input_len, (self.max_input_len / 10) as usize);
-		let mut results: Vec<Vec<f32>> = Vec::new();
-		for chunk in chunks.iter() {
-			let token_ids = Tensor::new(&chunk[..], device)?.unsqueeze(0)?;
-			let token_type_ids = token_ids.zeros_like()?;
-			let embeddings = self.model.forward(&token_ids, &token_type_ids)?;
+		let mut all_results: Vec<Vec<f32>> = Vec::new();
+		for text in texts.iter() {
+			let tokens = self.tokenizer
+				.encode(*text, true)
+				.map_err(|_| LibError::ModelTokenizerEncodeFailed)?
+				.get_ids()
+				.to_vec();
+			let chunks = chunk_input_tokens(&tokens, self.max_input_len, (self.max_input_len / 10) as usize);
+			let mut results: Vec<Vec<f32>> = Vec::new();
+			for chunk in chunks.iter() {
+				let token_ids = Tensor::new(&chunk[..], device)?.unsqueeze(0)?;
+				let token_type_ids = token_ids.zeros_like()?;
+				let embeddings = self.model.forward(&token_ids, &token_type_ids)?;
 
-			let (n_sentences, n_tokens, _hidden_size) = embeddings.dims3()?;
-			let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
+				let (n_sentences, n_tokens, _hidden_size) = embeddings.dims3()?;
+				let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
 
-			for j in 0..n_sentences {
-				let e_j = embeddings.get(j)?;
-				let mut emb: Vec<f32> = e_j.to_vec1()?;
-				normalize(&mut emb);
-				results.push(emb);
-				break;
+				for j in 0..n_sentences {
+					let e_j = embeddings.get(j)?;
+					let mut emb: Vec<f32> = e_j.to_vec1()?;
+					normalize(&mut emb);
+					results.push(emb);
+					break;
+				}
 			}
+			all_results.push(get_mean_vector(&results));
 		}
-		Ok(get_mean_vector(&results))
+
+		Ok(all_results)
 	}
 
 	fn get_hidden_size(&self) -> usize {
