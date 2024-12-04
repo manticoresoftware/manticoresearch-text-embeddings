@@ -42,11 +42,11 @@ impl OpenAIModel {
 }
 
 impl TextModel for OpenAIModel {
-	fn predict(&self, text: &str) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+	fn predict(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, Box<dyn std::error::Error>> {
 		let url = "https://api.openai.com/v1/embeddings";
 
 		let request_body = serde_json::json!({
-			"input": text,
+			"input": texts,
 			"model": self.model,
 		});
 
@@ -62,14 +62,21 @@ impl TextModel for OpenAIModel {
 			.json()
 			.map_err(|_| LibError::RemoteResponseParseFailed)?;
 
-		let embedding = response_body["data"][0]["embedding"]
+		let embeddings: Vec<Vec<f32>> = response_body["data"]
 			.as_array()
 			.unwrap_or(&Vec::new())
 			.iter()
-			.map(|v| v.as_f64().unwrap() as f32)
+			.map(|item| {
+				item["embedding"]
+					.as_array()
+					.unwrap_or(&Vec::new())
+					.iter()
+					.map(|v| v.as_f64().unwrap() as f32)
+					.collect()
+			})
 			.collect();
 
-		Ok(embedding)
+		Ok(embeddings)
 	}
 
 	fn get_hidden_size(&self) -> usize {

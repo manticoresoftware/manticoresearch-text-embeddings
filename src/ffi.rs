@@ -1,5 +1,5 @@
 use std::{ffi::CStr, os::raw::c_char};
-use crate::model::text_model_wrapper::{TextModelResult, TextModelWrapper, FloatVecResult};
+use crate::model::text_model_wrapper::{TextModelResult, TextModelWrapper, FloatVecResult, StringItem};
 
 type LoadModelFn = extern "C" fn(
 	*const c_char,
@@ -15,7 +15,7 @@ type FreeModelResultFn = extern "C" fn(TextModelResult);
 
 type MakeVectEmbeddingsFn = extern "C" fn(
 	&TextModelWrapper,
-	*const c_char,
+	*const StringItem,
 	usize
 ) -> FloatVecResult;
 

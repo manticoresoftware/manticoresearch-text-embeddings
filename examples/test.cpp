@@ -7,8 +7,11 @@
 #include "manticoresearch_text_embeddings.h"
 
 int main() {
-	const char text[] = "This is a sample text.";
-	const uintptr_t text_len = sizeof(text);
+	std::vector<std::string> strings = {"Example text", "Hello world!"};
+	std::vector<StringItem> text_list;
+	for (const auto& s : strings) {
+		text_list.push_back({s.c_str(), s.length()});
+	}
 
 	const EmbedLib *tLib = GetLibFuncs();
 
@@ -37,17 +40,25 @@ int main() {
 		return 1;
 	}
 	TextModelWrapper pEngine = pResult.m_pModel;
+	printf("Model loaded successfully\n");
 
-	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text, text_len );
+	FloatVecResult tVecResult = tLib->make_vect_embeddings ( &pEngine, text_list.data(), text_list.size() );
+
 	if (tVecResult.m_szError) {
 		std::cerr << "Error: " << tVecResult.m_szError << std::endl;
-		tLib->free_vec_result(tVecResult);
 		return 1;
 	}
-	FloatVec tEmbeddings = tVecResult.m_tEmbedding;
 
-	for (int i = 0; i < tEmbeddings.len; ++i) {
-		printf("Embedding [%d]: %f\n", i, tEmbeddings.ptr[i]);
+	printf("Embeddings computed successfully\n");
+	for (size_t i = 0; i < tVecResult.len; ++i) {
+		printf("Embeddings for text %zu\n", i);
+		const FloatVec& tVec = tVecResult.m_tEmbedding[i];
+		printf("Vector size: %zu\n", tVec.len);
+
+		printf("Iterating over embeddings\n");
+		for (int j = 0; j < tVec.len; ++j) {
+			printf("Embedding [%d]: %f\n", j, tVec.ptr[j]);
+		}
 	}
 
 	// Clean up

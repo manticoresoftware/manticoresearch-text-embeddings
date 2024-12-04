@@ -15,6 +15,7 @@ serde_json = "1.0.114"
 serde = "1.0.197"
 rand = "0.8.5"
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
+rayon = "1.10.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"
